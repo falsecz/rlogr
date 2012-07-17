@@ -7,6 +7,7 @@
 
 #include "hiredis/hiredis.h"
 
+#include <getopt.h>
 
 double microtime() {
 	struct timeval tim;
@@ -16,21 +17,60 @@ double microtime() {
 	return (1000000*tim.tv_sec+(tim.tv_usec));
 }
 
-int main()
+char *redisHost = (char *)"127.0.0.1";
+int redisPort = 6379;
+char *redisSet = NULL;
+int transparent = 0;
+
+void usage(){
+	printf("Redirect stdout to redis set v0.9.0\n");
+	printf("\t-h redis hostname [127.0.0.1]\n");
+	printf("\t-p redis port [6379]\n");
+	printf("\t-s redis setname (required)\n");
+	printf("\t-t transparently dump output\n");
+}
+
+void setup(int argc, char **argv) {
+	int c;
+	char * file;
+
+	while ((c = getopt(argc, argv, "h:p:s:t")) != -1) {
+        switch (c) {
+			case 'h':
+				redisHost = optarg;
+				break;		
+			case 'p':
+				redisPort = atoi(optarg);
+				break;	
+			case 's':	
+				redisSet = optarg;
+				break;
+			case 't':	
+				transparent = 1;
+				break;
+		}
+	}
+
+	if(redisSet == NULL) {
+		usage();
+		exit(1);
+	}
+	
+}
+int main(int argc, char **argv)
 {
 	char *cptr = NULL;
+	char *timestamp;
 	size_t thesize = 0;
-
-	char *setName = "myset";
-    
 	redisReply *reply;
 	
-	redisContext *redis = redisConnect((char*)"127.0.0.1", 6379);	
+	setup(argc, argv);
+		
+	redisContext *redis = redisConnect(redisHost, redisPort);	
 	if (redis->err) {
 		printf("Connection error: %s\n", redis->errstr);
         exit(1);
     }
-	printf("Connected to redis \n");
 		
 	while(1) {
 	    if(feof(stdin) != 0) { 
@@ -39,19 +79,16 @@ int main()
 	    
 	    getline(&cptr, &thesize, stdin);
 		
-		// hloupy odstraneni \n  TODO crlf lf cr
-		// int last = (int)strlen(cptr) - 1;
-		// if(last >= 0 ) {
-		// 			cptr[last] = '\0';
-		// }
-		
-		// printf("input string is %f: -------\n", microtime());
 		if(strlen(cptr)) {
-			printf("input string is : %s  -%i\n", cptr, (int)strlen(cptr));
+			if(transparent) {
+				printf("%s", cptr);
+			}
  
-			// nechapu
-			// reply = redisCommand(redis, "ZADD %s %.0f %b", setName, microtime()/1000, cptr, strlen(cptr)-1);
-			reply = redisCommand(redis, "ZADD %s 1342511726543 %b", setName, cptr, strlen(cptr)-1);
+			sprintf(timestamp, "%.0f", microtime());
+
+			// nechapu, proc to musim orezavat o posledni znak
+			reply = redisCommand(redis, "ZADD %s %s %b", redisSet, timestamp, cptr, strlen(cptr)-1);
+
 			if(REDIS_REPLY_INTEGER != reply->type) {
 			    printf("RedisError: %s\n", reply->str);
 			}

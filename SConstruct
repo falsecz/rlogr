@@ -44,5 +44,7 @@ env = Environment(
   LINKCOMSTR = link_program_message
 )
 
-env.Program(target = 'rlogr', source = ["rlogr.c"])
+rlogr = env.Program(target = 'rlogr', source = ["rlogr.c"])
 env.Append(LIBS = ['hiredis'])
+env.Install("/usr/local/bin", rlogr)
+env.Alias('install', ['/usr/local/bin'])

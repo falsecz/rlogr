@@ -20,6 +20,7 @@ double microtime() {
 char *redisHost = (char *)"127.0.0.1";
 int redisPort = 6379;
 char *redisSet = NULL;
+char *applicationType = NULL;
 int transparent = 0;
 
 void usage(){
@@ -27,6 +28,7 @@ void usage(){
 	printf("\t-h redis hostname [127.0.0.1]\n");
 	printf("\t-p redis port [6379]\n");
 	printf("\t-s redis setname (required)\n");
+	printf("\t-a application type (required)\n");
 	printf("\t-t transparently dump output\n");
 }
 
@@ -34,7 +36,7 @@ void setup(int argc, char **argv) {
 	int c;
 	char * file;
 
-	while ((c = getopt(argc, argv, "h:p:s:t")) != -1) {
+	while ((c = getopt(argc, argv, "h:p:s:ta:")) != -1) {
         switch (c) {
 			case 'h':
 				redisHost = optarg;
@@ -44,6 +46,9 @@ void setup(int argc, char **argv) {
 				break;	
 			case 's':	
 				redisSet = optarg;
+				break;
+			case 'a':	
+				applicationType = optarg;
 				break;
 			case 't':	
 				transparent = 1;
@@ -60,7 +65,8 @@ void setup(int argc, char **argv) {
 int main(int argc, char **argv)
 {
 	char *cptr = NULL;
-	char *timestamp;
+	char data[4096];
+	char timestamp[50];
 	size_t thesize = 0;
 	redisReply *reply;
 	
@@ -83,11 +89,12 @@ int main(int argc, char **argv)
 			if(transparent) {
 				printf("%s", cptr);
 			}
- 
+
+			sprintf(data, "%s - - %s", applicationType, cptr);
 			sprintf(timestamp, "%.0f", microtime());
 
 			// nechapu, proc to musim orezavat o posledni znak
-			reply = redisCommand(redis, "ZADD %s %s %b", redisSet, timestamp, cptr, strlen(cptr)-1);
+			reply = redisCommand(redis, "ZADD %s %s %b", redisSet, timestamp, data, strlen(data)-1);
 
 			if(REDIS_REPLY_INTEGER != reply->type) {
 			    printf("RedisError: %s\n", reply->str);
